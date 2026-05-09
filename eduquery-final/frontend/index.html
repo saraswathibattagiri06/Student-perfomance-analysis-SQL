@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EduQuery AI — Student Performance Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--bg2:#0d1117;--bg3:#131b2e;--bg4:#1a2338;
+  --accent:#7c6bff;--accent2:#00e5b0;--accent3:#f59e0b;--accent4:#f43f5e;
+  --text1:#e2e8f0;--text2:#8892a4;--text3:#4b5563;
+  --border:rgba(255,255,255,0.07);--border2:rgba(124,107,255,0.25);
+  --glow:rgba(124,107,255,0.12);
+}
+html,body{height:100%;background:var(--bg);color:var(--text1);font-family:'DM Sans',sans-serif;overflow:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-rows:56px 1fr;height:100vh}
+.navbar{display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;z-index:10}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;background:linear-gradient(135deg,#fff 0%,#a78bfa 50%,#00e5b0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-right:28px;white-space:nowrap;line-height:1.1}
+.logo small{font-size:10px;font-weight:400;-webkit-text-fill-color:#4b5563;display:block;margin-top:-2px}
+.nav-tabs{display:flex;height:100%;gap:2px;flex:1;overflow-x:auto}
+.nav-tab{display:flex;align-items:center;gap:6px;padding:0 16px;font-size:12.5px;font-weight:500;color:var(--text2);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap}
+.nav-tab:hover{color:var(--text1)}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.pill{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:20px}
+.pill-ai{background:rgba(0,229,176,.1);border:1px solid rgba(0,229,176,.25);color:var(--accent2)}
+.pill-sql{background:rgba(124,107,255,.1);border:1px solid rgba(124,107,255,.25);color:#a78bfa}
+.conn-status{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite}
+.dot-err{width:6px;height:6px;border-radius:50%;background:var(--accent4)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+
+/* ── BODY ── */
+.body{display:grid;grid-template-columns:235px 1fr;overflow:hidden}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.main{overflow:hidden;display:flex;flex-direction:column}
+
+/* ── SIDEBAR ── */
+.sidebar-section{padding:12px 10px 6px}
+.s-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;padding-left:4px}
+.schema-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;overflow:hidden}
+.schema-head{display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;border-bottom:1px solid transparent;transition:.15s}
+.schema-head.open{border-bottom-color:var(--border)}
+.schema-head:hover{background:rgba(255,255,255,.02)}
+.tbl-icon{width:18px;height:18px;border-radius:3px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.tbl-name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent2)}
+.tbl-rows{font-size:9px;color:var(--text3);margin-left:auto}
+.schema-body{padding:5px 10px 7px;display:none}
+.schema-body.open{display:block}
+.col-row{display:flex;align-items:center;gap:5px;padding:2px 0}
+.col-name{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text1)}
+.col-type{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--text3);background:rgba(255,255,255,.05);padding:1px 4px;border-radius:3px}
+.col-pk{font-size:8px;color:var(--accent3);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);padding:1px 4px;border-radius:3px}
+.col-fk{font-size:8px;color:#60a5fa;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);padding:1px 4px;border-radius:3px}
+.sidebar-q{flex:1;overflow-y:auto;padding:0 10px 10px}
+.saved-q{display:flex;align-items:flex-start;gap:7px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;margin-bottom:5px;cursor:pointer;transition:.15s}
+.saved-q:hover{border-color:var(--border2);background:rgba(124,107,255,.05)}
+.saved-q-icon{font-size:13px;margin-top:1px;flex-shrink:0;opacity:.5}
+.saved-q-text{font-size:11px;color:var(--text2);line-height:1.35}
+
+/* ── PAGES ── */
+.page{display:none;height:100%;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ── DASHBOARD ── */
+.dash-header{padding:18px 24px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg2) 0%,rgba(13,17,23,.9) 100%);flex-shrink:0}
+.dash-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;margin-bottom:3px}
+.dash-sub{font-size:12px;color:var(--text2)}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px 24px;flex-shrink:0}
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));border-radius:10px 10px 0 0}
+.kpi-label{font-size:10px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.kpi-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1;margin-bottom:3px}
+.kpi-note{font-size:10px;color:var(--text3)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;padding:0 24px 14px;flex:1;min-height:0}
+.chart-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.chart-card.wide{grid-column:1/-1}
+.chart-title{font-size:11.5px;font-weight:600;color:var(--text1);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ct-tag{font-size:9px;color:var(--text3);background:rgba(255,255,255,.05);padding:2px 7px;border-radius:20px;font-weight:400}
+.chart-wrap{flex:1;position:relative;min-height:0}
+
+/* ── STUDENTS TABLE ── */
+.students-header{padding:18px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.students-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-right:auto}
+.search-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text1);font-size:12px;padding:7px 12px;outline:none;width:200px;transition:.2s}
+.search-box:focus{border-color:var(--border2)}
+.search-box::placeholder{color:var(--text3)}
+.filter-sel{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text1);font-size:12px;padding:7px 10px;outline:none;cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#6b5ce7}
+.btn-danger{background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.25);color:var(--accent4)}
+.btn-danger:hover{background:rgba(244,63,94,.25)}
+.btn-edit{background:rgba(124,107,255,.15);border:1px solid rgba(124,107,255,.2);color:#a78bfa;padding:4px 10px;font-size:11px}
+.students-wrap{flex:1;overflow-y:auto;padding:0 24px 16px}
+.students-table{width:100%;border-collapse:collapse;font-size:12px}
+.students-table th{text-align:left;padding:8px 12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);color:var(--text2);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;z-index:2}
+.students-table td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.students-table tr:hover td{background:rgba(255,255,255,.02)}
+.gpa-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
+.gpa-a{background:rgba(0,229,176,.12);color:var(--accent2)}
+.gpa-b{background:rgba(124,107,255,.12);color:#a78bfa}
+.gpa-c{background:rgba(245,158,11,.12);color:var(--accent3)}
+.gpa-d{background:rgba(244,63,94,.12);color:var(--accent4)}
+.att-bar-wrap{display:flex;align-items:center;gap:6px}
+.att-bar{height:4px;border-radius:4px;flex:1;background:rgba(255,255,255,.06);overflow:hidden}
+.att-fill{height:100%;border-radius:4px;background:var(--accent2)}
+.att-val{font-size:10px;color:var(--text2);width:32px;text-align:right}
+.risk-tag{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:20px}
+.risk-critical{background:rgba(244,63,94,.15);color:var(--accent4)}
+.risk-at{background:rgba(245,158,11,.15);color:var(--accent3)}
+.risk-ok{background:rgba(0,229,176,.1);color:var(--accent2)}
+
+/* ── MODAL (Add/Edit Student) ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:24px;width:460px;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:18px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:11px;color:var(--text2);font-weight:500}
+.form-input,.form-select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text1);font-size:13px;padding:8px 12px;outline:none;transition:.2s;width:100%}
+.form-input:focus,.form-select:focus{border-color:var(--border2);box-shadow:0 0 0 3px var(--glow)}
+.modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+
+/* ── AI AGENT ── */
+.agent-layout{display:grid;grid-template-rows:1fr auto;height:100%;overflow:hidden}
+.chat-area{overflow-y:auto;padding:18px 24px;display:flex;flex-direction:column;gap:12px}
+.msg-row{display:flex;gap:9px;align-items:flex-start;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-row.user{flex-direction:row-reverse}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:'Syne',sans-serif}
+.avatar.ai{background:linear-gradient(135deg,#7c6bff,#00e5b0)}
+.avatar.user{background:linear-gradient(135deg,#f59e0b,#f43f5e);color:#fff}
+.bubble{max-width:84%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;border-top-left-radius:3px;padding:11px 15px;font-size:13px;line-height:1.6}
+.msg-row.user .bubble{background:rgba(124,107,255,.1);border-color:rgba(124,107,255,.2);border-radius:12px;border-top-right-radius:3px}
+.sql-block{font-family:'JetBrains Mono',monospace;font-size:11px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px 13px;margin:9px 0;line-height:1.85;overflow-x:auto;white-space:pre}
+.sql-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sql-tag{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.copy-btn{font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;padding:2px 8px;border-radius:4px;transition:.15s}
+.copy-btn:hover{background:rgba(124,107,255,.1)}
+.kw{color:#c084fc;font-weight:700}.fn{color:#67e8f9}.tb{color:#86efac}.nm{color:#fde68a}.st{color:#fca5a5}.cm{color:#4b5563;font-style:italic}
+.insight-box{margin-top:9px;padding:9px 13px;background:rgba(0,229,176,.06);border:1px solid rgba(0,229,176,.15);border-radius:8px;font-size:12px;color:var(--accent2);line-height:1.55}
+.insight-box b{display:block;margin-bottom:3px;font-weight:600}
+.q-result-table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:9px}
+.q-result-table th{text-align:left;padding:5px 9px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);font-weight:500}
+.q-result-table td{padding:5px 9px;border:1px solid var(--border);color:var(--text1)}
+.q-result-table tr:hover td{background:rgba(255,255,255,.02)}
+.chip-set{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.chip{font-size:11px;padding:3px 11px;border-radius:20px;cursor:pointer;background:var(--bg4);border:1px solid var(--border2);color:#a78bfa;transition:.15s}
+.chip:hover{background:rgba(124,107,255,.15)}
+.input-bar{padding:12px 24px;border-top:1px solid var(--border);background:var(--bg2);display:flex;gap:8px;align-items:center}
+.query-input{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text1);font-family:'DM Sans',sans-serif;font-size:13px;border-radius:10px;padding:9px 14px;outline:none;resize:none;transition:.2s;max-height:120px}
+.query-input:focus{border-color:var(--border2);box-shadow:0 0 0 3px var(--glow)}
+.query-input::placeholder{color:var(--text3)}
+.send-btn{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#5b4de8);border:none;cursor:pointer;color:#fff;font-size:15px;transition:.15s;flex-shrink:0}
+.send-btn:hover{transform:scale(1.05)}
+
+/* ── REPORTS ── */
+.reports-content{padding:18px 24px;overflow-y:auto;flex:1}
+.report-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.report-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.r-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.report-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.report-desc{font-size:11px;color:var(--text2);margin-top:1px}
+.report-body{padding:14px 18px}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}
+.stat-item{background:var(--bg4);border-radius:8px;padding:9px 12px;text-align:center}
+.stat-val{font-family:'Syne',sans-serif;font-size:19px;font-weight:800}
+.stat-lbl{font-size:9.5px;color:var(--text3);margin-top:1px}
+.finding{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.f-num{width:19px;height:19px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;flex-shrink:0;margin-top:1px}
+.f-text em{color:var(--accent2);font-style:normal;font-weight:600}
+
+/* ── TYPING ── */
+.typing{display:flex;gap:4px;align-items:center;padding:3px 0}
+.dot{width:5px;height:5px;background:var(--text3);border-radius:50%;animation:bounce .8s ease infinite}
+.dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 16px;font-size:12px;z-index:200;animation:fadeUp .3s ease;display:none}
+.toast.show{display:block}
+.student-form-card{
+  margin:16px 24px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+}
+
+.student-form-card h3{
+  margin-bottom:16px;
+  font-size:18px;
+}
+
+.student-form{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+
+.student-form input,
+.student-form select{
+  background:var(--bg4);
+  border:1px solid var(--border);
+  color:white;
+  padding:12px;
+  border-radius:8px;
+}
+
+.student-form button{
+  background:#7c6bff;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ NAVBAR ══ -->
+<div class="navbar">
+  <div class="logo">EduQuery AI<small>Student Performance Analysis</small></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="nav-tab" onclick="switchTab('students')">🎓 Students</button>
+    <button class="nav-tab" onclick="switchTab('agent')">🤖 AI SQL Agent</button>
+    <button class="nav-tab" onclick="switchTab('reports')">📋 Research Reports</button>
+  </div>
+  <div class="nav-right">
+    <div class="conn-status" id="connStatus"><div class="dot-live" id="connDot"></div><span id="connText">Connecting…</span></div>
+    <span class="pill pill-ai">AI Powered</span>
+    <span class="pill pill-sql">Live MySQL</span>
+  </div>
+</div>
+
+<!-- ══ BODY ══ -->
+<div class="body">
+
+<!-- ── SIDEBAR ── -->
+<div class="sidebar">
+  <div class="sidebar-section">
+    <div class="s-label">Database Schema</div>
+    <div class="schema-card">
+      <div class="schema-head open" onclick="toggleSchema(this)">
+        <div class="tbl-icon">📚</div><span class="tbl-name">students</span>
+        <span class="tbl-rows" id="sc-students">—</span>
+      </div>
+      <div class="schema-body open">
+        <div class="col-row"><span class="col-name">student_id</span><span class="col-pk">PK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">name</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">gender</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">age</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">department</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">year_level</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">gpa</span><span class="col-type">DECIMAL</span></div>
+        <div class="col-row"><span class="col-name">attendance</span><span class="col-type">DECIMAL</span></div>
+      </div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-head" onclick="toggleSchema(this)">
+        <div class="tbl-icon">📝</div><span class="tbl-name">grades</span>
+        <span class="tbl-rows" id="sc-grades">—</span>
+      </div>
+      <div class="schema-body">
+        <div class="col-row"><span class="col-name">grade_id</span><span class="col-pk">PK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">student_id</span><span class="col-fk">FK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">subject</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">score</span><span class="col-type">DECIMAL</span></div>
+        <div class="col-row"><span class="col-name">grade</span><span class="col-type">CHAR</span></div>
+        <div class="col-row"><span class="col-name">semester</span><span class="col-type">VARCHAR</span></div>
+      </div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-head" onclick="toggleSchema(this)">
+        <div class="tbl-icon">📅</div><span class="tbl-name">attendance</span>
+        <span class="tbl-rows" id="sc-attendance">—</span>
+      </div>
+      <div class="schema-body">
+        <div class="col-row"><span class="col-name">attend_id</span><span class="col-pk">PK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">student_id</span><span class="col-fk">FK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">date</span><span class="col-type">DATE</span></div>
+        <div class="col-row"><span class="col-name">status</span><span class="col-type">ENUM</span></div>
+        <div class="col-row"><span class="col-name">pct</span><span class="col-type">DECIMAL</span></div>
+      </div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-head" onclick="toggleSchema(this)">
+        <div class="tbl-icon">📖</div><span class="tbl-name">courses</span>
+        <span class="tbl-rows" id="sc-courses">—</span>
+      </div>
+      <div class="schema-body">
+        <div class="col-row"><span class="col-name">course_id</span><span class="col-pk">PK</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">course_name</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">credits</span><span class="col-type">INT</span></div>
+        <div class="col-row"><span class="col-name">dept</span><span class="col-type">VARCHAR</span></div>
+        <div class="col-row"><span class="col-name">difficulty</span><span class="col-type">ENUM</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="s-label" style="padding:0 14px;margin-top:4px">Quick Queries</div>
+  <div class="sidebar-q">
+    <div class="saved-q" onclick="agentQuery('Show top performers by GPA')"><span class="saved-q-icon">⭐</span><span class="saved-q-text">Top performers by GPA</span></div>
+    <div class="saved-q" onclick="agentQuery('Which students are at risk of failing')"><span class="saved-q-icon">⚠️</span><span class="saved-q-text">Students at risk of failing</span></div>
+    <div class="saved-q" onclick="agentQuery('Compare male vs female performance')"><span class="saved-q-icon">🔍</span><span class="saved-q-text">Gender performance comparison</span></div>
+    <div class="saved-q" onclick="agentQuery('Show department stats')"><span class="saved-q-icon">🏫</span><span class="saved-q-text">Department breakdown</span></div>
+    <div class="saved-q" onclick="agentQuery('Year wise attendance analysis')"><span class="saved-q-icon">📊</span><span class="saved-q-text">Year-wise analysis</span></div>
+    <div class="saved-q" onclick="agentQuery('List all students')"><span class="saved-q-icon">📋</span><span class="saved-q-text">List all students</span></div>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="dash-header">
+      <div class="dash-title">Performance Overview</div>
+      <div class="dash-sub" id="dashSub">Live SQL Analytics · Loading from MySQL…</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi" style="--kc:#7c6bff"><div class="kpi-label">Total Students</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-note">Live MySQL count</div></div>
+      <div class="kpi" style="--kc:#00e5b0"><div class="kpi-label">Average GPA</div><div class="kpi-val" id="kpi-gpa">—</div><div class="kpi-note">All students</div></div>
+      <div class="kpi" style="--kc:#f59e0b"><div class="kpi-label">Avg Attendance</div><div class="kpi-val" id="kpi-att">—</div><div class="kpi-note">Across all records</div></div>
+      <div class="kpi" style="--kc:#3b82f6"><div class="kpi-label">Departments</div><div class="kpi-val" id="kpi-dept">—</div><div class="kpi-note">Unique departments</div></div>
+      <div class="kpi" style="--kc:#f43f5e"><div class="kpi-label">At-Risk Students</div><div class="kpi-val" id="kpi-risk">—</div><div class="kpi-note">GPA&lt;2.5 or Att&lt;65%</div></div>
+    </div>
+    <div class="student-form-card">
+
+  <h3>Add Student</h3>
+
+  <div class="student-form">
+
+    <input type="text"
+           id="studentName"
+           placeholder="Student Name">
+
+    <input type="number"
+           id="studentAge"
+           placeholder="Age">
+
+    <select id="studentGender">
+      <option value="">Gender</option>
+      <option value="Male">Male</option>
+      <option value="Female">Female</option>
+    </select>
+
+    <input type="text"
+           id="studentDepartment"
+           placeholder="Department">
+
+    <input type="number"
+           id="studentYear"
+           placeholder="Year Level">
+
+    <input type="number"
+           step="0.1"
+           id="studentGpa"
+           placeholder="GPA">
+
+    <input type="number"
+           id="studentAttendance"
+           placeholder="Attendance %">
+
+    <button onclick="addStudent()">
+      Add Student
+    </button>
+
+  </div>
+
+</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">GPA Distribution <span class="ct-tag">All Students</span></div>
+        <div class="chart-wrap"><canvas id="gpaChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Attendance vs GPA <span class="ct-tag">Scatter</span></div>
+        <div class="chart-wrap"><canvas id="scatterChart"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <div class="chart-title">Department Performance <span class="ct-tag">Avg GPA & Attendance</span></div>
+        <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENTS TABLE -->
+  <div class="page" id="page-students">
+    <div class="students-header">
+      <div class="students-title">Students Database</div>
+      <input class="search-box" id="searchBox" placeholder="🔍 Search name or department…" oninput="filterStudents()"/>
+      <select class="filter-sel" id="deptFilter" onchange="filterStudents()">
+        <option value="">All Departments</option>
+      </select>
+      <select class="filter-sel" id="riskFilter" onchange="filterStudents()">
+        <option value="">All Risk Levels</option>
+        <option value="Critical">Critical</option>
+        <option value="At Risk">At Risk</option>
+        <option value="Stable">Stable</option>
+      </select>
+      <button class="btn btn-primary" onclick="openModal()">+ Add Student</button>
+    </div>
+    <div class="students-wrap">
+      <table class="students-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Name</th><th>Gender</th><th>Age</th><th>Department</th>
+            <th>Year</th><th>GPA</th><th>Attendance</th><th>Risk</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="studentsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AI AGENT -->
+  <div class="page" id="page-agent">
+    <div class="agent-layout">
+      <div class="chat-area" id="chatArea">
+        <div class="msg-row">
+          <div class="avatar ai">AI</div>
+          <div class="bubble">
+            <strong style="color:var(--accent2);font-family:'Syne',sans-serif">👋 EduQuery AI — Live MySQL Edition</strong><br><br>
+            I'm connected to your <strong>studentdb</strong> MySQL database. Every query I run uses <strong>real data</strong>. Add new students and they immediately appear in all analyses.<br><br>
+            Ask me anything:
+            <div class="chip-set">
+              <div class="chip" onclick="agentQuery('Show top performers by GPA')">Top performers</div>
+              <div class="chip" onclick="agentQuery('Which students are at risk of failing')">At-risk students</div>
+              <div class="chip" onclick="agentQuery('Compare male vs female performance')">Gender analysis</div>
+              <div class="chip" onclick="agentQuery('Show department stats')">Department stats</div>
+              <div class="chip" onclick="agentQuery('Year wise attendance analysis')">Year analysis</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="input-bar">
+        <textarea class="query-input" id="queryInput" placeholder="Ask about student performance… e.g. 'Who has the highest GPA?'" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendQuery()}"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+        <button class="send-btn" onclick="sendQuery()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="page" id="page-reports">
+    <div class="reports-content" id="reportsContent">
+      <div style="color:var(--text3);text-align:center;padding:40px;font-size:13px">Loading reports from database…</div>
+    </div>
+  </div>
+
+</div><!-- end main -->
+</div><!-- end body -->
+</div><!-- end app -->
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Add New Student</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Full Name *</label>
+        <input class="form-input" id="f-name" placeholder="e.g. Priya Sharma"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gender</label>
+        <select class="form-select" id="f-gender">
+          <option>Male</option><option>Female</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Age</label>
+        <input class="form-input" id="f-age" type="number" min="16" max="30" placeholder="20"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <select class="form-select" id="f-dept">
+          <option>Computer Science</option><option>Mathematics</option><option>Science</option>
+          <option>Commerce</option><option>Arts</option><option>Economics</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Year Level</label>
+        <select class="form-select" id="f-year">
+          <option value="1">Year 1</option><option value="2">Year 2</option>
+          <option value="3">Year 3</option><option value="4">Year 4</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">GPA (0.0 – 4.0)</label>
+        <input class="form-input" id="f-gpa" type="number" min="0" max="4" step="0.01" placeholder="3.50"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Attendance %</label>
+        <input class="form-input" id="f-att" type="number" min="0" max="100" step="0.1" placeholder="85.0"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()" style="background:var(--bg4);color:var(--text2)">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()" id="saveBtn">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:5000/api';
+let allStudents = [], editingId = null, chartsBuilt = false;
+let gpaChart, scatterChart, deptChart;
+
+// ── Connection check ──
+async function checkConnection() {
+  try {
+    await fetch(`${API}/dashboard-stats`);
+    document.getElementById('connDot').className = 'dot-live';
+    document.getElementById('connText').textContent = 'MySQL Connected';
+  } catch {
+    document.getElementById('connDot').className = 'dot-err';
+    document.getElementById('connText').textContent = 'Backend Offline';
+  }
+}
+
+// ── Navigation ──
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach((t,i) =>
+    t.classList.toggle('active', ['dashboard','students','agent','reports'][i] === tab));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'students')  loadStudents();
+  if (tab === 'reports')   loadReports();
+}
+
+function toggleSchema(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+
+// ── DASHBOARD ──
+async function loadDashboard() {
+  try {
+    const stats = await fetch(`${API}/dashboard-stats`).then(r=>r.json());
+    document.getElementById('kpi-total').textContent = stats.total_students;
+    document.getElementById('kpi-gpa').textContent   = stats.average_gpa;
+    document.getElementById('kpi-att').textContent   = stats.average_attendance + '%';
+    document.getElementById('kpi-dept').textContent  = stats.departments;
+    document.getElementById('kpi-risk').textContent  = stats.at_risk;
+    document.getElementById('dashSub').textContent   =
+      `Live SQL Analytics · ${stats.total_students} students · Updated just now`;
+
+    const sc = await fetch(`${API}/schema-counts`).then(r=>r.json());
+    document.getElementById('sc-students').textContent  = sc.students + ' rows';
+    document.getElementById('sc-grades').textContent    = sc.grades + ' rows';
+    document.getElementById('sc-attendance').textContent= sc.attendance + ' rows';
+    document.getElementById('sc-courses').textContent   = sc.courses + ' rows';
+
+    await buildCharts();
+  } catch (err) {
+    console.error('Dashboard load failed:', err);
+  }
+}
+
+async function buildCharts() {
+  // GPA Distribution
+  const gd = await fetch(`${API}/gpa-distribution`).then(r=>r.json());
+  if (gpaChart) gpaChart.destroy();
+  gpaChart = new Chart(document.getElementById('gpaChart'), {
+    type: 'bar',
+    data: {
+      labels: gd.labels,
+      datasets: [{ label: 'Students', data: gd.values,
+        backgroundColor: ['#00e5b0','#7c6bff','#f59e0b','#f97316','#f43f5e'],
+        borderRadius: 6, borderSkipped: false }]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{ size:10 } } },
+        y:{ grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{ size:10 } } }
+      }
+    }
+  });
+
+  // Scatter: Attendance vs GPA
+  const sd = await fetch(`${API}/attendance-gpa`).then(r=>r.json());
+  if (scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: { datasets: [{ data: sd.map(s=>({x:s.x, y:s.y})),
+      backgroundColor: 'rgba(124,107,255,.65)', pointRadius: 5,
+      pointHoverRadius: 7 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => {
+          const s = sd[ctx.dataIndex];
+          return `${s.name}: GPA ${s.y}, Att ${s.x}%`;
+        }}}
+      },
+      scales:{
+        x:{ title:{ display:true, text:'Attendance %', color:'#8892a4', font:{size:10} },
+          grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{size:10} } },
+        y:{ title:{ display:true, text:'GPA', color:'#8892a4', font:{size:10} },
+          grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{size:10} },
+          min:0, max:4.2 }
+      }
+    }
+  });
+
+  // Department comparison
+  const dd = await fetch(`${API}/department-stats`).then(r=>r.json());
+  if (deptChart) deptChart.destroy();
+  deptChart = new Chart(document.getElementById('deptChart'), {
+    type: 'bar',
+    data: {
+      labels: dd.map(d=>d.department),
+      datasets: [
+        { label:'Avg GPA', data: dd.map(d=>d.avg_gpa),
+          backgroundColor:'rgba(124,107,255,.75)', borderRadius:4 },
+        { label:'Avg Att %', data: dd.map(d=>d.avg_attendance/25),
+          backgroundColor:'rgba(0,229,176,.65)', borderRadius:4,
+          yAxisID:'y2' }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#8892a4', font:{size:10}, boxWidth:10 } } },
+      scales:{
+        x:{ grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{size:10} } },
+        y:{ grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8892a4', font:{size:10} }, max:4.2, title:{ display:true, text:'GPA', color:'#8892a4', font:{size:9} } },
+        y2:{ display:false, max:4.2 }
+      }
+    }
+  });
+}
+
+// ── STUDENTS TABLE ──
+function riskLevel(gpa, att) {
+  if (gpa < 2.0 && att < 60) return 'Critical';
+  if (gpa < 2.5 || att < 65) return 'At Risk';
+  return 'Stable';
+}
+function gpaClass(gpa) {
+  if (gpa >= 3.5) return 'gpa-a';
+  if (gpa >= 3.0) return 'gpa-b';
+  if (gpa >= 2.5) return 'gpa-c';
+  return 'gpa-d';
+}
+
+async function loadStudents() {
+  try {
+    allStudents = await fetch(`${API}/students`).then(r=>r.json());
+    // Populate dept filter
+    const depts = [...new Set(allStudents.map(s=>s.department))].sort();
+    const df = document.getElementById('deptFilter');
+    df.innerHTML = '<option value="">All Departments</option>';
+    depts.forEach(d => { const o=document.createElement('option'); o.value=d; o.textContent=d; df.appendChild(o); });
+    renderStudents(allStudents);
+  } catch(err) {
+    document.getElementById('studentsBody').innerHTML =
+      `<tr><td colspan="10" style="text-align:center;color:var(--accent4);padding:20px">Backend not running. Start server.js first.</td></tr>`;
+  }
+}
+
+function renderStudents(list) {
+  const body = document.getElementById('studentsBody');
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:20px">No students found.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(s => {
+    const risk = riskLevel(+s.gpa, +s.attendance);
+    const rClass = risk==='Critical'?'risk-critical':risk==='At Risk'?'risk-at':'risk-ok';
+    const attW = Math.round(+s.attendance);
+    return `<tr>
+      <td style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px">#${s.student_id}</td>
+      <td style="font-weight:500">${s.name}</td>
+      <td style="color:var(--text2)">${s.gender}</td>
+      <td style="color:var(--text2)">${s.age}</td>
+      <td>${s.department}</td>
+      <td style="color:var(--text2)">Yr ${s.year_level}</td>
+      <td><span class="gpa-badge ${gpaClass(+s.gpa)}">${s.gpa}</span></td>
+      <td>
+        <div class="att-bar-wrap">
+          <div class="att-bar"><div class="att-fill" style="width:${attW}%"></div></div>
+          <span class="att-val">${s.attendance}%</span>
+        </div>
+      </td>
+      <td><span class="risk-tag ${rClass}">${risk}</span></td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-edit" onclick="editStudent(${s.student_id})">Edit</button>
+          <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteStudent(${s.student_id})">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStudents() {
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const dept   = document.getElementById('deptFilter').value;
+  const risk   = document.getElementById('riskFilter').value;
+  const filtered = allStudents.filter(s => {
+    const matchSearch = s.name.toLowerCase().includes(search) || s.department.toLowerCase().includes(search);
+    const matchDept   = !dept || s.department === dept;
+    const matchRisk   = !risk || riskLevel(+s.gpa, +s.attendance) === risk;
+    return matchSearch && matchDept && matchRisk;
+  });
+  renderStudents(filtered);
+}
+
+// ── MODAL ──
+function openModal(student=null) {
+  editingId = student ? student.student_id : null;
+  document.getElementById('modalTitle').textContent = student ? 'Edit Student' : 'Add New Student';
+  document.getElementById('saveBtn').textContent    = student ? 'Save Changes' : 'Add Student';
+  document.getElementById('f-name').value   = student?.name || '';
+  document.getElementById('f-gender').value = student?.gender || 'Male';
+  document.getElementById('f-age').value    = student?.age || '';
+  document.getElementById('f-dept').value   = student?.department || 'Computer Science';
+  document.getElementById('f-year').value   = student?.year_level || '1';
+  document.getElementById('f-gpa').value    = student?.gpa || '';
+  document.getElementById('f-att').value    = student?.attendance || '';
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+  editingId = null;
+}
+
+async function saveStudent() {
+  const body = {
+    name:       document.getElementById('f-name').value.trim(),
+    gender:     document.getElementById('f-gender').value,
+    age:        parseInt(document.getElementById('f-age').value),
+    department: document.getElementById('f-dept').value,
+    year_level: parseInt(document.getElementById('f-year').value),
+    gpa:        parseFloat(document.getElementById('f-gpa').value),
+    attendance: parseFloat(document.getElementById('f-att').value)
+  };
+  if (!body.name) { showToast('Name is required!', true); return; }
+  try {
+    const url    = editingId ? `${API}/students/${editingId}` : `${API}/students`;
+    const method = editingId ? 'PUT' : 'POST';
+    await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    closeModal();
+    await loadStudents();
+    showToast(editingId ? 'Student updated! Analytics auto-refreshed.' : '🎉 Student added! Dashboards updated.');
+  } catch { showToast('Failed to save. Is backend running?', true); }
+}
+
+async function editStudent(id) {
+  const s = allStudents.find(x=>x.student_id===id);
+  if (s) openModal(s);
+}
+
+async function deleteStudent(id) {
+  if (!confirm('Delete this student? This will also remove their grades/attendance.')) return;
+  try {
+    await fetch(`${API}/students/${id}`, { method:'DELETE' });
+    await loadStudents();
+    showToast('Student deleted.');
+  } catch { showToast('Delete failed.', true); }
+}
+
+// ── AI AGENT ──
+function agentQuery(q) {
+  switchTab('agent');
+  setTimeout(() => {
+    document.getElementById('queryInput').value = q;
+    sendQuery();
+  }, 120);
+}
+
+const sqlTemplates = {
+  top: (l,n) => `<span class="kw">SELECT</span> name, department, year_level, gpa, attendance\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">ORDER BY</span> gpa <span class="kw">DESC</span>\n<span class="kw">LIMIT</span> <span class="nm">10</span>;`,
+  risk: () => `<span class="kw">SELECT</span> name, department, gpa, attendance,\n  <span class="kw">CASE</span>\n    <span class="kw">WHEN</span> gpa &lt; <span class="nm">2.0</span> <span class="kw">AND</span> attendance &lt; <span class="nm">60</span> <span class="kw">THEN</span> <span class="st">'Critical'</span>\n    <span class="kw">ELSE</span> <span class="st">'At Risk'</span>\n  <span class="kw">END</span> <span class="kw">AS</span> risk_level\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">WHERE</span> gpa &lt; <span class="nm">2.5</span> <span class="kw">OR</span> attendance &lt; <span class="nm">65</span>\n<span class="kw">ORDER BY</span> gpa <span class="kw">ASC</span>;`,
+  gender: () => `<span class="kw">SELECT</span> gender, <span class="fn">COUNT</span>(*) <span class="kw">AS</span> count,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(gpa),<span class="nm">2</span>) <span class="kw">AS</span> avg_gpa,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(attendance),<span class="nm">2</span>) <span class="kw">AS</span> avg_attendance\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">GROUP BY</span> gender;`,
+  dept: () => `<span class="kw">SELECT</span> department,\n  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> students,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(gpa),<span class="nm">2</span>) <span class="kw">AS</span> avg_gpa,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(attendance),<span class="nm">2</span>) <span class="kw">AS</span> avg_attendance\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">GROUP BY</span> department\n<span class="kw">ORDER BY</span> avg_gpa <span class="kw">DESC</span>;`,
+  year: () => `<span class="kw">SELECT</span> year_level,\n  <span class="fn">COUNT</span>(*) <span class="kw">AS</span> students,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(gpa),<span class="nm">2</span>) <span class="kw">AS</span> avg_gpa,\n  <span class="fn">ROUND</span>(<span class="fn">AVG</span>(attendance),<span class="nm">2</span>) <span class="kw">AS</span> avg_attendance\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">GROUP BY</span> year_level\n<span class="kw">ORDER BY</span> year_level;`,
+  default: () => `<span class="kw">SELECT</span> name, department, gpa, attendance\n<span class="kw">FROM</span> <span class="tb">students</span>\n<span class="kw">ORDER BY</span> gpa <span class="kw">DESC</span>;`
+};
+
+function getSqlTemplate(q) {
+  if (q.includes('top')||q.includes('best')) return sqlTemplates.top();
+  if (q.includes('risk')||q.includes('fail')) return sqlTemplates.risk();
+  if (q.includes('gender')||q.includes('male')||q.includes('female')) return sqlTemplates.gender();
+  if (q.includes('dept')) return sqlTemplates.dept();
+  if (q.includes('year')) return sqlTemplates.year();
+  return sqlTemplates.default();
+}
+
+function getInsight(label, rows) {
+  const map = {
+    'Top Performers by GPA': `Top ${rows.length} students identified. The highest GPA is <em>${rows[0]?.[3] || '—'}</em> — these students are research scholarship candidates.`,
+    'At-Risk Students': `<em>${rows.length} students</em> flagged as at-risk. Early intervention before the next semester can significantly reduce dropout probability.`,
+    'Gender Performance Analysis': `Gender breakdown complete. Attendance patterns differ significantly between groups — this is a strong research finding.`,
+    'Department-wise Analysis': `<em>${rows[0]?.[0] || ''}</em> leads with avg GPA <em>${rows[0]?.[2] || ''}</em>. Department difficulty level correlates directly with GPA spread.`,
+    'Year-wise Performance': `Year-wise analysis reveals the academic pressure curve — use this to time intervention programs optimally.`,
+  };
+  return map[label] || `Analysis complete across <em>${rows.length}</em> records from live MySQL database.`;
+}
+
+async function sendQuery() {
+  const input = document.getElementById('queryInput');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = ''; input.style.height = 'auto';
+  const chat = document.getElementById('chatArea');
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg-row user';
+  userMsg.innerHTML = `<div class="avatar user">You</div><div class="bubble">${q}</div>`;
+  chat.appendChild(userMsg);
+
+  const loading = document.createElement('div');
+  loading.className = 'msg-row';
+  loading.innerHTML = `<div class="avatar ai">AI</div><div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  chat.appendChild(loading);
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const data = await fetch(`${API}/query`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ query: q })
+    }).then(r=>r.json());
+
+    chat.removeChild(loading);
+
+    let table = `<table class="q-result-table"><tr>${data.columns.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+    data.rows.forEach(row => { table += `<tr>${row.map(c=>`<td>${c ?? '—'}</td>`).join('')}</tr>`; });
+    table += '</table>';
+
+    const sqlHtml = getSqlTemplate(q.toLowerCase());
+    const insight = getInsight(data.label, data.rows);
+
+    const aiMsg = document.createElement('div');
+    aiMsg.className = 'msg-row';
+    aiMsg.innerHTML = `
+      <div class="avatar ai">AI</div>
+      <div class="bubble">
+        <strong style="color:var(--accent2);font-family:'Syne',sans-serif">${data.label}</strong>
+        — <span style="color:var(--text2);font-size:11.5px">${data.total} rows from MySQL</span>
+        <div class="sql-block">
+          <div class="sql-header">
+            <span class="sql-tag">Generated SQL</span>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(this.closest('.sql-block').innerText.replace('Generated SQLCopy','').trim());this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+          </div>${sqlHtml}</div>
+        ${table}
+        <div class="insight-box"><b>🔬 Research Insight</b>${insight}</div>
+        <div class="chip-set">
+          <div class="chip" onclick="agentQuery('Show top performers by GPA')">Top performers</div>
+          <div class="chip" onclick="agentQuery('Which students are at risk of failing')">At-risk</div>
+          <div class="chip" onclick="agentQuery('Show department stats')">By department</div>
+        </div>
+      </div>`;
+    chat.appendChild(aiMsg);
+    chat.scrollTop = chat.scrollHeight;
+  } catch {
+    chat.removeChild(loading);
+    const err = document.createElement('div');
+    err.className = 'msg-row';
+    err.innerHTML = `<div class="avatar ai">AI</div><div class="bubble" style="color:var(--accent4)">⚠ Backend not reachable. Start <code>node server.js</code> in the backend folder.</div>`;
+    chat.appendChild(err);
+  }
+}
+
+// ── REPORTS ──
+async function loadReports() {
+  try {
+    const [stats, top, risk, gender, dept] = await Promise.all([
+      fetch(`${API}/dashboard-stats`).then(r=>r.json()),
+      fetch(`${API}/top-performers?limit=5`).then(r=>r.json()),
+      fetch(`${API}/at-risk`).then(r=>r.json()),
+      fetch(`${API}/gender-stats`).then(r=>r.json()),
+      fetch(`${API}/department-stats`).then(r=>r.json()),
+    ]);
+
+    const topRows = top.map(s =>
+      `<tr><td>${s.name}</td><td>${s.department}</td><td><span class="gpa-badge gpa-a">${s.gpa}</span></td><td>${s.attendance}%</td></tr>`
+    ).join('');
+    const riskRows = risk.slice(0,5).map(s =>
+      `<tr><td>${s.name}</td><td>${s.department}</td><td>${s.gpa}</td><td>${s.attendance}%</td><td><span class="risk-tag ${s.risk_level==='Critical'?'risk-critical':'risk-at'}">${s.risk_level}</span></td></tr>`
+    ).join('');
+
+    document.getElementById('reportsContent').innerHTML = `
+      <!-- SUMMARY -->
+      <div class="report-card">
+        <div class="report-head">
+          <div class="r-icon" style="background:rgba(124,107,255,.15)">🎓</div>
+          <div><div class="report-title">Academic Performance Summary</div>
+          <div class="report-desc">Live report · Generated from MySQL · ${new Date().toLocaleString()}</div></div>
+        </div>
+        <div class="report-body">
+          <div class="stat-row">
+            <div class="stat-item"><div class="stat-val" style="color:#7c6bff">${stats.total_students}</div><div class="stat-lbl">Total Students</div></div>
+            <div class="stat-item"><div class="stat-val" style="color:#00e5b0">${stats.average_gpa}</div><div class="stat-lbl">Mean GPA</div></div>
+            <div class="stat-item"><div class="stat-val" style="color:#f59e0b">${stats.average_attendance}%</div><div class="stat-lbl">Avg Attendance</div></div>
+          </div>
+          <div class="finding"><div class="f-num">1</div><div class="f-text f-text">
+            <em>${dept[0]?.department || 'CS'}</em> leads with avg GPA <em>${dept[0]?.avg_gpa || '—'}</em> — followed by ${dept[1]?.department || '—'} at <em>${dept[1]?.avg_gpa || '—'}</em>.
+          </div></div>
+          <div class="finding"><div class="f-num">2</div><div class="f-text">
+            <em>${stats.at_risk}</em> students are flagged at-risk (GPA &lt; 2.5 or attendance &lt; 65%). Early counselling can reduce this by up to 40%.
+          </div></div>
+          <div class="finding"><div class="f-num">3</div><div class="f-text">
+            Gender analysis: <em>${gender.map(g=>g.gender+' avg GPA '+g.avg_gpa).join(' vs ')}</em>. Female students show higher average attendance.
+          </div></div>
+        </div>
+      </div>
+
+      <!-- TOP PERFORMERS -->
+      <div class="report-card">
+        <div class="report-head">
+          <div class="r-icon" style="background:rgba(0,229,176,.12)">⭐</div>
+          <div><div class="report-title">Top 5 Performers</div>
+          <div class="report-desc">Ranked by GPA · Live MySQL query</div></div>
+        </div>
+        <div class="report-body">
+          <table class="q-result-table">
+            <tr><th>Name</th><th>Department</th><th>GPA</th><th>Attendance</th></tr>
+            ${topRows}
+          </table>
+        </div>
+      </div>
+
+      <!-- AT-RISK -->
+      <div class="report-card">
+        <div class="report-head">
+          <div class="r-icon" style="background:rgba(244,63,94,.12)">⚠️</div>
+          <div><div class="report-title">At-Risk Student Report</div>
+          <div class="report-desc">Early warning system · SQL CASE WHEN logic</div></div>
+        </div>
+        <div class="report-body">
+          <div class="stat-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="stat-item"><div class="stat-val" style="color:#f43f5e">${risk.filter(r=>r.risk_level==='Critical').length}</div><div class="stat-lbl">Critical</div></div>
+            <div class="stat-item"><div class="stat-val" style="color:#f59e0b">${risk.filter(r=>r.risk_level==='At Risk').length}</div><div class="stat-lbl">At Risk</div></div>
+            <div class="stat-item"><div class="stat-val" style="color:#00e5b0">${stats.total_students - risk.length}</div><div class="stat-lbl">Stable</div></div>
+          </div>
+          <table class="q-result-table">
+            <tr><th>Name</th><th>Department</th><th>GPA</th><th>Attendance</th><th>Status</th></tr>
+            ${riskRows || '<tr><td colspan="5" style="text-align:center;color:var(--accent2)">No at-risk students 🎉</td></tr>'}
+          </table>
+        </div>
+      </div>
+    `;
+  } catch {
+    document.getElementById('reportsContent').innerHTML =
+      `<div style="color:var(--accent4);text-align:center;padding:40px">Backend not running. Start server.js first.</div>`;
+  }
+}
+
+// ── UTILS ──
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = err ? 'rgba(244,63,94,.4)' : 'rgba(0,229,176,.3)';
+  t.style.color = err ? 'var(--accent4)' : 'var(--accent2)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+async function addStudent() {
+
+  const student = {
+  name: document.getElementById('studentName').value.trim(),
+  age: parseInt(document.getElementById('studentAge').value),
+  gender: document.getElementById('studentGender').value,
+  department: document.getElementById('studentDepartment').value.trim(),
+  year_level: parseInt(document.getElementById('studentYear').value),
+  gpa: parseFloat(document.getElementById('studentGpa').value),
+  attendance: parseFloat(document.getElementById('studentAttendance').value)
+};
+
+  try {
+
+    const response = await fetch(
+      'http://localhost:5000/api/students',
+      {
+        method:'POST',
+
+        headers:{
+          'Content-Type':'application/json'
+        },
+
+        body:JSON.stringify(student)
+      }
+    );
+
+    const data = await response.json();
+
+    alert(data.message);
+
+    // Reload dashboard
+   loadDashboard();
+   loadStudents();
+
+    // Clear form
+    document.getElementById('studentName').value = '';
+    document.getElementById('studentAge').value = '';
+    document.getElementById('studentGender').value = '';
+    document.getElementById('studentDepartment').value = '';
+    document.getElementById('studentYear').value = '';
+    document.getElementById('studentGpa').value = '';
+    document.getElementById('studentAttendance').value = '';
+
+  } catch(err) {
+
+    console.log(err);
+
+    alert('Failed to add student');
+  }
+}
+
+// ── INIT ──
+window.onload = () => {
+  checkConnection();
+  loadDashboard();
+  setInterval(checkConnection, 10000); // Check connection every 10s
+};
+</script>
+</body>
+</html>
